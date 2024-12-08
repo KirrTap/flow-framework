@@ -240,8 +240,6 @@ jacocoTestReport {
     }
 }
 
-
-// Vypočítanie a zobrazenie pokrytia v konzole
 tasks.register("printCoverage") {
     dependsOn(tasks.jacocoTestReport)
 
@@ -253,8 +251,6 @@ tasks.register("printCoverage") {
             return
         }
 
-
-        // Povolenie DOCTYPE deklarácií
         def slurper = new XmlSlurper()
         slurper.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
 
@@ -280,7 +276,6 @@ tasks.named("yamlRestTest").configure {
     }
 }
 
-// Set up integration tests
 task integTest(type: RestIntegTestTask) {
     description = "Run tests against a cluster"
     testClassesDirs = sourceSets.test.output.classesDirs
