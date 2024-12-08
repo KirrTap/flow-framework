@@ -63,4 +63,15 @@ public class GetWorkflowStepTransportActionTests extends OpenSearchTestCase {
         assertEquals(GetWorkflowStepResponse.class, stepCaptor.getValue().getClass());
 
     }
+
+    public void testGetWorkflowStepActionWithEmptyParams() throws IOException {
+        WorkflowRequest workflowRequest = new WorkflowRequest(null, null);
+        ActionListener<GetWorkflowStepResponse> listener = mock(ActionListener.class);
+        
+        getWorkflowStepTransportAction.doExecute(mock(Task.class), workflowRequest, listener);
+
+        ArgumentCaptor<GetWorkflowStepResponse> stepCaptor = ArgumentCaptor.forClass(GetWorkflowStepResponse.class);
+        verify(listener, times(1)).onResponse(stepCaptor.capture());
+    }
+  
 }

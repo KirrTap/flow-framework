@@ -84,4 +84,26 @@ public class ReprovisionWorkflowRequestTests extends OpenSearchTestCase {
         assertEquals(request.getUpdatedTemplate().toJson(), requestFromStreamInput.getUpdatedTemplate().toJson());
     }
 
+    public void testReprovisionWorkflowRequestValidation() {
+        ReprovisionWorkflowRequest request = new ReprovisionWorkflowRequest("123", originalTemplate, updatedTemplate);
+        
+        // Test that validate() returns null as per the current implementation
+        assertNull(request.validate());
+    }
+
+    public void testStreamInputWithInvalidJson() throws IOException {
+        // Prepare a stream with invalid JSON to test error handling
+        BytesStreamOutput out = new BytesStreamOutput();
+        out.writeString("123");
+        out.writeString("invalid json");
+        out.writeString("another invalid json");
+
+        BytesStreamInput in = new BytesStreamInput(BytesReference.toBytes(out.bytes()));
+
+        // Expect an exception due to invalid JSON
+        expectThrows(Exception.class, () -> {
+            new ReprovisionWorkflowRequest(in);
+        });
+    }
+
 }

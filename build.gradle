@@ -228,9 +228,50 @@ jacocoTestReport {
     dependsOn test
     reports {
         xml.required = true
+        csv.required = false
+        html.required = true
+    }
+    doLast {
+        def reportFile = file("${buildDir}/reports/jacoco/test/jacocoTestReport.xml")
+        if (reportFile.exists()) {
+            def reportContent = reportFile.text.replaceFirst(/<!DOCTYPE[^>]*>/, '')
+            reportFile.text = reportContent
+        }
     }
 }
-tasks.named("check").configure { dependsOn(jacocoTestReport) }
+
+
+// Vypočítanie a zobrazenie pokrytia v konzole
+tasks.register("printCoverage") {
+    dependsOn(tasks.jacocoTestReport)
+
+
+    doLast {
+        def reportFile = file("${buildDir}/reports/jacoco/test/jacocoTestReport.xml")
+        if (!reportFile.exists()) {
+            println("Coverage report not found. Run tests first.")
+            return
+        }
+
+
+        // Povolenie DOCTYPE deklarácií
+        def slurper = new XmlSlurper()
+        slurper.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
+
+
+        def coverageData = slurper.parse(reportFile)
+        def instructionsMissed = coverageData.counter.find { it.@type == 'INSTRUCTION' }?.@missed?.toInteger() ?: 0
+        def instructionsCovered = coverageData.counter.find { it.@type == 'INSTRUCTION' }?.@covered?.toInteger() ?: 0
+        def totalInstructions = instructionsMissed + instructionsCovered
+
+
+        def coveragePercent = totalInstructions > 0 ? (instructionsCovered / totalInstructions * 100) : 0
+        println "Code Coverage: ${String.format('%.2f', coveragePercent)}%"
+    }
+}
+
+
+tasks.named("check").configure { dependsOn("printCoverage") }
 
 tasks.named("yamlRestTest").configure {
     filter {

@@ -284,4 +284,14 @@ public class EncryptorUtilsTests extends OpenSearchTestCase {
         Template redactedTemplate = encryptorUtils.redactTemplateSecuredFields(user, testTemplate);
         assertNotNull(redactedTemplate.getUser());
     }
+
+    public void testEncryptEmptyString() {
+        encryptorUtils.setMasterKey(testMasterKey);
+        String encrypted = encryptorUtils.encrypt("");
+        assertNotNull(encrypted);
+        
+        String decrypted = encryptorUtils.decrypt(encrypted);
+        assertEquals("", decrypted);
+    }
+    
 }

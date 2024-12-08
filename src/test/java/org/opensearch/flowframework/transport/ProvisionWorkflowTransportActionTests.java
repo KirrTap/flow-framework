@@ -26,6 +26,7 @@ import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.flowframework.TestHelpers;
 import org.opensearch.flowframework.common.FlowFrameworkSettings;
+import org.opensearch.flowframework.exception.FlowFrameworkException;
 import org.opensearch.flowframework.indices.FlowFrameworkIndicesHandler;
 import org.opensearch.flowframework.model.ProvisioningProgress;
 import org.opensearch.flowframework.model.Template;
@@ -219,6 +220,52 @@ public class ProvisionWorkflowTransportActionTests extends OpenSearchTestCase {
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals(
             "The workflow provisioning state is DONE and can not be provisioned unless its state is NOT_STARTED: 2. Deprovision the workflow to reset the state.",
+            exceptionCaptor.getValue().getMessage()
+        );
+    }
+
+    public void testWorkflowUpdateSystemIndexFailure() {
+        String workflowId = "failure-workflow";
+        @SuppressWarnings("unchecked")
+        ActionListener<WorkflowResponse> listener = mock(ActionListener.class);
+        WorkflowRequest workflowRequest = new WorkflowRequest(workflowId, null);
+    
+        // Bypass client.get and stub success case
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> responseListener = invocation.getArgument(1);
+    
+            XContentBuilder builder = XContentFactory.jsonBuilder();
+            this.template.toXContent(builder, null);
+            BytesReference templateBytesRef = BytesReference.bytes(builder);
+            GetResult getResult = new GetResult(GLOBAL_CONTEXT_INDEX, workflowId, 1, 1, 1, true, templateBytesRef, null, null);
+            responseListener.onResponse(new GetResponse(getResult));
+            return null;
+        }).when(client).get(any(GetRequest.class), any());
+    
+        when(encryptorUtils.decryptTemplateCredentials(any())).thenReturn(template);
+    
+        // Bypass isWorkflowNotStarted and force true response
+        doAnswer(invocation -> {
+            Consumer<Optional<ProvisioningProgress>> progressConsumer = invocation.getArgument(1);
+            progressConsumer.accept(Optional.of(ProvisioningProgress.NOT_STARTED));
+            return null;
+        }).when(flowFrameworkIndicesHandler).getProvisioningProgress(any(), any(), any());
+    
+        // Simulate failure in updating system index
+        doAnswer(invocation -> {
+            ActionListener<UpdateResponse> actionListener = invocation.getArgument(2);
+            actionListener.onFailure(new Exception("System index update failed"));
+            return null;
+        }).when(flowFrameworkIndicesHandler).updateFlowFrameworkSystemIndexDoc(any(), anyMap(), any());
+    
+        provisionWorkflowTransportAction.doExecute(mock(Task.class), workflowRequest, listener);
+        
+        ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
+        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
+        
+        assertTrue(exceptionCaptor.getValue() instanceof FlowFrameworkException);
+        assertEquals(
+            "Failed to update workflow state: failure-workflow",
             exceptionCaptor.getValue().getMessage()
         );
     }
